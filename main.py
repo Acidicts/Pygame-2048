@@ -29,9 +29,34 @@ colours = {0: (204, 192, 179),
            }
 
 board_values = [[0 for _ in range(4)] for _ in range(4)]
+game_over = False
+spawn_new = True
+init_count = 0
+direction = ''
+score = 0
+file = open('high_score.txt', 'r')
+init_high = int(file.readline())
+file.close()
+high_score = init_high
+
+
+def draw_over():
+    go_bg = pygame.rect.Rect(50, 50, 300, 100)
+    rec = pygame.draw.rect(win, "black", go_bg, 0, 10)
+
+    game_over_text = pygame.font.SysFont("Comfortaa-Regular.ttf", 48).render("Game Over", True, colours['light text'])
+    game_over_text1 = pygame.font.SysFont("Comfortaa-Regular.ttf", 24).render("Press Enter to Restart", True,
+                                                                         colours['light text'])
+
+    text_rect = game_over_text.get_rect(center=(rec.center[0], rec.center[1] - 20))
+    text_rect1 = game_over_text1.get_rect(center=(rec.center[0], rec.center[1] + 40))
+
+    win.blit(game_over_text, text_rect)
+    win.blit(game_over_text1, text_rect1)
 
 
 def take_turn(dirc, board):
+    global score
     merged = [[False for _ in range(4)] for _ in range(4)]
     if dirc == 'UP':
         for i in range(4):
@@ -46,17 +71,62 @@ def take_turn(dirc, board):
                         board[i][j] = 0
                     if board[i - shift - 1][j] == board[i - shift][j] and not merged[i - shift - 1][j]:
                         board[i - shift - 1][j] *= 2
+                        score += board[i - shift - 1][j]
                         board[i - shift][j] = 0
                         merged[i - shift - 1][j] = True
 
     elif dirc == 'DOWN':
-        board = move_down(board)
+        for i in range(3):
+            for j in range(4):
+                shift = 0
+                for q in range(i + 1):
+                    if board[3 - q][j] == 0:
+                        shift += 1
+                if shift > 0:
+                    board[2 - i + shift][j] = board[2 - i][j]
+                    board[2 - i][j] = 0
+                if 3 - i + shift <= 3:
+                    if board[2 - i + shift][j] == board[3 - i + shift][j] and not merged[3 - i + shift][j] \
+                            and not merged[2 - i + shift][j]:
+                        board[3 - i + shift][j] *= 2
+                        score += board[3 - i + shift][j]
+                        board[2 - i + shift][j] = 0
+                        merged[3 - i + shift][j] = True
     elif dirc == 'LEFT':
-        board = move_left(board)
+        for i in range(4):
+            for j in range(4):
+                shift = 0
+                for q in range(j):
+                    if board[i][q] == 0:
+                        shift += 1
+                if shift > 0:
+                    board[i][j - shift] = board[i][j]
+                    board[i][j] = 0
+                if board[i][j - shift - 1] == board[i][j - shift] and not merged[i][j - shift - 1] \
+                        and not merged[i][j - shift]:
+                    board[i][j - shift - 1] *= 2
+                    score += board[i][j - shift - 1]
+                    board[i][j - shift] = 0
+                    merged[i][j - shift - 1] = True
     elif dirc == 'RIGHT':
-        board = move_right(board)
+        for i in range(4):
+            for j in range(3):
+                shift = 0
+                for q in range(j + 1):
+                    if board[i][3 - q] == 0:
+                        shift += 1
+                if shift > 0:
+                    board[i][2 - j + shift] = board[i][2 - j]
+                    board[i][2 - j] = 0
+                if 3 - j + shift <= 3:
+                    if board[i][2 - j + shift] == board[i][3 - j + shift] and not merged[i][3 - j + shift] \
+                            and not merged[i][2 - j + shift]:
+                        board[i][3 - j + shift] *= 2
+                        score += board[i][3 - j + shift]
+                        board[i][2 - j + shift] = 0
+                        merged[i][3 - j + shift] = True
 
-    return board
+    return board, True
 
 
 def new_piece(board):
@@ -82,6 +152,11 @@ def new_piece(board):
 
 def draw_board():
     pygame.draw.rect(win, colours['bg'], [0, 0, 400, 400], 0, 10)
+    score_text = pygame.font.SysFont("freesansbold.ttf", 24).render(f'Score: {score}', True, colours['dark text'])
+    high_score_text = pygame.font.SysFont("freesansbold.ttf", 24).render(f'High Score: {high_score}', True,
+                                                                         colours['dark text'])
+    win.blit(score_text, (20, 420))
+    win.blit(high_score_text, (200, 420))
 
 
 def draw_pieces(board):
@@ -109,10 +184,8 @@ def draw_pieces(board):
 
 
 run = True
-spawn_new = True
-direction = ''
 while run:
-    clock.tick(fps)
+    clock.tick(60)
     win.fill('gray')
 
     draw_board()
@@ -120,11 +193,20 @@ while run:
 
     if spawn_new:
         board_values, game_over = new_piece(board_values)
+        game_over = True
         spawn_new = False
 
     if direction != '':
-        board_values = take_turn(direction, board_values)
+        board_values, spawn_new = take_turn(direction, board_values)
         direction = ''
+
+    if game_over:
+        draw_over()
+        if score > high_score:
+            high_score = score
+            file = open('high_score.txt', 'w')
+            file.write(str(high_score))
+            file.close()
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -141,5 +223,14 @@ while run:
                 direction = 'LEFT'
             elif event.key == pygame.K_RIGHT:
                 direction = 'RIGHT'
+
+            if game_over:
+                if event.key == pygame.K_RETURN:
+                    board_values = [[0 for _ in range(4)] for _ in range(4)]
+                    game_over = False
+                    init_count = 0
+                    direction = ''
+                    spawn_new = True
+                    score = 0
 
     pygame.display.flip()
