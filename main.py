@@ -193,7 +193,7 @@ while run:
 
     if spawn_new:
         board_values, game_over = new_piece(board_values)
-        game_over = True
+        game_over = False
         spawn_new = False
 
     if direction != '':
